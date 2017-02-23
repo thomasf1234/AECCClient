@@ -51,7 +51,7 @@ module UrisSpec
           end
 
           # Log the request to the console for debugging
-          @last_request = request_lines.join
+          @last_request = TCPPacket.new(request_lines.join)
           # https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html#sec6
           headers = []
           headers << "HTTP/1.1 200 OK"
@@ -62,12 +62,33 @@ module UrisSpec
           socket.close
         rescue Exception => e
           @exception = e
+          puts e
           raise e
         ensure
           if !server.closed?
             server.close
           end
         end
+      end
+    end
+
+    class TCPPacket
+      attr_reader :http_method, :end_point, :http_version, :headers, :raw_body
+      def initialize(raw_packet)
+        #split on first blank line
+        header, body = raw_packet.split(CRLF + CRLF, 2)
+
+        header_lines = header.lines
+        http_header = header_lines.shift
+        @http_method, @end_point, @http_version = http_header.split(' ').map(&:strip)
+
+        @headers = {}
+        header_lines.each do |line|
+          key, value = line.split(':', 2).map(&:strip)
+          @headers[key] = value
+        end
+
+        @raw_body = body
       end
     end
   end
@@ -77,70 +98,96 @@ module UrisSpec
     let(:client) { AECCClient::Client.new(TestServer::HOST, TestServer::PORT) }
 
     describe "#healthcheck" do
-      let(:expected_last_request) do
-        "GET /healthcheck HTTP/1.1\r\nAccept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3\r\nAccept: */*\r\nUser-Agent: Ruby\r\nConnection: close\r\nHost: 127.0.0.1:2000\r\n\r\n"
-      end
-
       it 'sends correct request' do
         last_request = TestServer.execute { client.healthcheck }
-        expect(last_request).to eq(expected_last_request)
+
+        expect(last_request.http_method).to eq("GET")
+        expect(last_request.end_point).to eq("/healthcheck")
+        expect(last_request.http_version).to eq("HTTP/1.1")
+        expect(last_request.headers['Host']).to eq("127.0.0.1:2000")
+        expect(last_request.headers['Connection']).to eq("close")
+        expect(last_request.headers['User-Agent']).to eq("Ruby")
+        expect(last_request.raw_body).to eq("")
       end
     end
 
     describe "#avds" do
-      let(:expected_last_request) do
-        "GET /avds HTTP/1.1\r\nAccept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3\r\nAccept: */*\r\nUser-Agent: Ruby\r\nConnection: close\r\nHost: 127.0.0.1:2000\r\n\r\n"
-      end
-
       it 'sends correct request' do
         last_request = TestServer.execute { client.avds }
-        expect(last_request).to eq(expected_last_request)
+
+        expect(last_request.http_method).to eq("GET")
+        expect(last_request.end_point).to eq("/avds")
+        expect(last_request.http_version).to eq("HTTP/1.1")
+        expect(last_request.headers['Host']).to eq("127.0.0.1:2000")
+        expect(last_request.headers['Connection']).to eq("close")
+        expect(last_request.headers['User-Agent']).to eq("Ruby")
+        expect(last_request.raw_body).to eq("")
       end
     end
 
     describe "#avd_start" do
-      let(:expected_last_request) do
-        "POST /emulators/start HTTP/1.1\r\nAccept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3\r\nAccept: */*\r\nUser-Agent: Ruby\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\nHost: 127.0.0.1:2000\r\nContent-Length: 23\r\n\r\navd_name=Nexus_6_API_24"
-      end
-
       it 'sends correct request' do
         last_request = TestServer.execute { client.avd_start('Nexus_6_API_24') }
-        expect(last_request).to eq(expected_last_request)
+
+        expect(last_request.http_method).to eq("POST")
+        expect(last_request.end_point).to eq("/emulators/start")
+        expect(last_request.http_version).to eq("HTTP/1.1")
+        expect(last_request.headers['Host']).to eq("127.0.0.1:2000")
+        expect(last_request.headers['Content-Type']).to eq("application/x-www-form-urlencoded")
+        expect(last_request.headers['Connection']).to eq("close")
+        expect(last_request.headers['User-Agent']).to eq("Ruby")
+        expect(last_request.headers['Content-Length']).to eq("23")
+        expect(last_request.raw_body).to eq("avd_name=Nexus_6_API_24")
       end
     end
 
     describe "#emulator_kill" do
-      let(:expected_last_request) do
-        "POST /emulators/kill HTTP/1.1\r\nAccept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3\r\nAccept: */*\r\nUser-Agent: Ruby\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\nHost: 127.0.0.1:2000\r\nContent-Length: 48\r\n\r\ndevice_uuid=b45cfb29-0ec7-4682-93a0-7f6cf2c7d5cc"
-      end
-
       it 'sends correct request' do
         last_request = TestServer.execute { client.emulator_kill('b45cfb29-0ec7-4682-93a0-7f6cf2c7d5cc') }
-        expect(last_request).to eq(expected_last_request)
+
+        expect(last_request.http_method).to eq("POST")
+        expect(last_request.end_point).to eq("/emulators/kill")
+        expect(last_request.http_version).to eq("HTTP/1.1")
+        expect(last_request.headers['Host']).to eq("127.0.0.1:2000")
+        expect(last_request.headers['Content-Type']).to eq("application/x-www-form-urlencoded")
+        expect(last_request.headers['Connection']).to eq("close")
+        expect(last_request.headers['User-Agent']).to eq("Ruby")
+        expect(last_request.headers['Content-Length']).to eq("48")
+        expect(last_request.raw_body).to eq("device_uuid=b45cfb29-0ec7-4682-93a0-7f6cf2c7d5cc")
       end
     end
 
     describe "#deploy_apk" do
-      let(:expected_last_request) do
-        "POST /emulators/b45cfb29-0ec7-4682-93a0-7f6cf2c7d5cc/packages HTTP/1.1\r\nContent-Type: multipart/form-data; boundary=a2fffb99f068eb2c\r\nAccept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3\r\nAccept: */*\r\nUser-Agent: Ruby\r\nConnection: close\r\nHost: 127.0.0.1:2000\r\nContent-Length: 218\r\n\r\n--a2fffb99f068eb2c\r\nContent-Disposition: form-data; name=\"data\"; filename=\"my_file.txt\"\r\nContent-Type: application/octet-stream\r\nContent-Length: 45\r\n\r\nFirst line of my file\n\nThird Line of my file\n\r\n--a2fffb99f068eb2c--"
-      end
-
       let(:file) { File.new('spec/samples/my_file.txt') }
 
       it 'sends correct request' do
         last_request = TestServer.execute { client.deploy_apk('b45cfb29-0ec7-4682-93a0-7f6cf2c7d5cc', file) }
-        expect(last_request).to eq(expected_last_request)
+
+        expect(last_request.http_method).to eq("POST")
+        expect(last_request.end_point).to eq("/emulators/b45cfb29-0ec7-4682-93a0-7f6cf2c7d5cc/packages")
+        expect(last_request.http_version).to eq("HTTP/1.1")
+        expect(last_request.headers['Host']).to eq("127.0.0.1:2000")
+        expect(last_request.headers['Content-Type']).to eq("multipart/form-data; boundary=a2fffb99f068eb2c")
+        expect(last_request.headers['Connection']).to eq("close")
+        expect(last_request.headers['User-Agent']).to eq("Ruby")
+        expect(last_request.headers['Content-Length']).to eq("218")
+        expect(last_request.raw_body).to eq("--a2fffb99f068eb2c\r\nContent-Disposition: form-data; name=\"data\"; filename=\"my_file.txt\"\r\nContent-Type: application/octet-stream\r\nContent-Length: 45\r\n\r\nFirst line of my file\n\nThird Line of my file\n\r\n--a2fffb99f068eb2c--")
       end
     end
 
     describe "#reset_permissions" do
-      let(:expected_last_request) do
-        "POST /emulators/b45cfb29-0ec7-4682-93a0-7f6cf2c7d5cc/packages/com.example.package/permissions HTTP/1.1\r\nAccept-Encoding: gzip;q=1.0,deflate;q=0.6,identity;q=0.3\r\nAccept: */*\r\nUser-Agent: Ruby\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\nHost: 127.0.0.1:2000\r\nContent-Length: 12\r\n\r\naction=reset"
-      end
-
       it 'sends correct request' do
         last_request = TestServer.execute { client.reset_permissions('b45cfb29-0ec7-4682-93a0-7f6cf2c7d5cc', 'com.example.package') }
-        expect(last_request).to eq(expected_last_request)
+
+        expect(last_request.http_method).to eq("POST")
+        expect(last_request.end_point).to eq("/emulators/b45cfb29-0ec7-4682-93a0-7f6cf2c7d5cc/packages/com.example.package/permissions")
+        expect(last_request.http_version).to eq("HTTP/1.1")
+        expect(last_request.headers['Host']).to eq("127.0.0.1:2000")
+        expect(last_request.headers['Content-Type']).to eq("application/x-www-form-urlencoded")
+        expect(last_request.headers['Connection']).to eq("close")
+        expect(last_request.headers['User-Agent']).to eq("Ruby")
+        expect(last_request.headers['Content-Length']).to eq("12")
+        expect(last_request.raw_body).to eq("action=reset")
       end
     end
   end
