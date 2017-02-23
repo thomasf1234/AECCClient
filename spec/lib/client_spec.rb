@@ -78,7 +78,7 @@ module UrisSpec
         #split on first blank line
         header, body = raw_packet.split(CRLF + CRLF, 2)
 
-        header_lines = header.lines
+        header_lines = header.lines.to_a
         http_header = header_lines.shift
         @http_method, @end_point, @http_version = http_header.split(' ').map(&:strip)
 
