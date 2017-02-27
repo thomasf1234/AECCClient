@@ -24,9 +24,7 @@ module AECCClient
     end
 
     def deploy_apk(device_uuid, file)
-      uri =  @uri.package_uri(device_uuid)
-      multipart = AECCClient::Multipart.new(file, 'application/octet-stream')
-      post_custom(uri, multipart.header, multipart.body)
+      post_file(@uri.package_uri(device_uuid), file)
     end
 
     def reset_permissions(device_uuid, package)
@@ -49,10 +47,11 @@ module AECCClient
       response
     end
 
-    def post_custom(uri, header, body)
+    def post_file(uri, file)
+      multipart = AECCClient::Multipart.new(file, 'application/octet-stream')
       http = Net::HTTP.new(uri.host, uri.port)
-      request = Net::HTTP::Post.new(uri.request_uri, header)
-      request.body = body
+      request = Net::HTTP::Post.new(uri.request_uri, multipart.header)
+      request.body = multipart.body
       response = http.request(request)
       response
     end
